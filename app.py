@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine  # type: ignore
+from sqlalchemy import create_engine, text  # Use text from sqlalchemy
 
 # Database URI for Airline Passenger Satisfaction database
 db_uri = "postgresql+psycopg2://postgres:pavanpaj@127.0.0.1:5432/Passenger_Airline_Satisfaction"
@@ -9,10 +9,13 @@ engine = create_engine(db_uri)
 def run_query(query, params=None):
     """Executes a SQL query and returns the results as a DataFrame."""
     with engine.connect() as connection:
-        result = connection.execute(query, params)  # Execute query
+        # Using text() for parameterized query execution
+        query = text(query)
+        result = connection.execute(query, params) if params else connection.execute(query)  # Execute query
         data = result.fetchall()  # Fetch the result
         columns = result.keys()  # Get column names from result
         return pd.DataFrame(data, columns=columns)  # Convert to DataFrame
+
 
 # Streamlit app structure
 st.title("Airline Passenger Satisfaction Database")
@@ -38,9 +41,9 @@ if page == "Passengers":
         customer_type = st.text_input("Enter customer type (e.g., 'Loyal Customer'):")
         if customer_type:  # Ensure input is not empty
             passenger_query = """
-            SELECT * FROM passengers WHERE customertype LIKE %s LIMIT 10;
+            SELECT * FROM passengers WHERE customertype LIKE :customer_type LIMIT 10;
             """
-            params = (f"%{customer_type}%",)  # Use wildcards for partial matching
+            params = {"customer_type": f"%{customer_type}%"}  # Use wildcards for partial matching
             passenger_df = run_query(passenger_query, params=params)
             st.write(passenger_df)
 
@@ -49,9 +52,9 @@ if page == "Passengers":
         max_age = st.number_input("Enter maximum age:", min_value=0)
         if min_age and max_age:  # Ensure valid age range
             passenger_query = """
-            SELECT * FROM passengers WHERE age BETWEEN %s AND %s LIMIT 10;
+            SELECT * FROM passengers WHERE age BETWEEN :min_age AND :max_age LIMIT 10;
             """
-            params = (min_age, max_age)  # Age range for the query
+            params = {"min_age": min_age, "max_age": max_age}  # Age range for the query
             passenger_df = run_query(passenger_query, params=params)
             st.write(passenger_df)
 
@@ -70,9 +73,9 @@ elif page == "Flights":
         travel_type = st.text_input("Enter type of travel (e.g., 'Business Travel'):")
         if travel_type:  # Ensure input is not empty
             flights_query = """
-            SELECT * FROM flights WHERE typeoftravel LIKE %s LIMIT 10;
+            SELECT * FROM flights WHERE typeoftravel LIKE :travel_type LIMIT 10;
             """
-            params = (f"%{travel_type}%",)  # Use wildcards for partial matching
+            params = {"travel_type": f"%{travel_type}%"}  # Use wildcards for partial matching
             flights_df = run_query(flights_query, params=params)
             st.write(flights_df)
 
@@ -80,9 +83,9 @@ elif page == "Flights":
         flight_class = st.text_input("Enter class (e.g., 'Business'):")
         if flight_class:  # Ensure input is not empty
             flights_query = """
-            SELECT * FROM flights WHERE class LIKE %s LIMIT 10;
+            SELECT * FROM flights WHERE class LIKE :flight_class LIMIT 10;
             """
-            params = (f"%{flight_class}%",)  # Use wildcards for partial matching
+            params = {"flight_class": f"%{flight_class}%"}  # Use wildcards for partial matching
             flights_df = run_query(flights_query, params=params)
             st.write(flights_df)
 
@@ -100,18 +103,18 @@ elif page == "Satisfaction Ratings":
     if selected_satisfaction_query == "Ratings by Seat Comfort":
         seat_comfort = st.number_input("Enter Seat Comfort rating (1-5):", min_value=1, max_value=5)
         satisfaction_query = """
-        SELECT * FROM satisfaction_ratings WHERE seatcomfort = %s LIMIT 10;
+        SELECT * FROM satisfaction_ratings WHERE seatcomfort = :seat_comfort LIMIT 10;
         """
-        params = (seat_comfort,)  # Exact match for rating
+        params = {"seat_comfort": seat_comfort}  # Exact match for rating
         satisfaction_df = run_query(satisfaction_query, params=params)
         st.write(satisfaction_df)
 
     elif selected_satisfaction_query == "Ratings by Inflight Wi-Fi":
         wifi_rating = st.number_input("Enter Wi-Fi rating (1-5):", min_value=1, max_value=5)
         satisfaction_query = """
-        SELECT * FROM satisfaction_ratings WHERE inflightwifiservice = %s LIMIT 10;
+        SELECT * FROM satisfaction_ratings WHERE inflightwifiservice = :wifi_rating LIMIT 10;
         """
-        params = (wifi_rating,)  # Exact match for Wi-Fi service rating
+        params = {"wifi_rating": wifi_rating}  # Exact match for Wi-Fi service rating
         satisfaction_df = run_query(satisfaction_query, params=params)
         st.write(satisfaction_df)
 
@@ -129,18 +132,18 @@ elif page == "Delays":
     if selected_delays_query == "Delays by Flight":
         flight_id = st.number_input("Enter Flight ID (e.g., 123):", min_value=1)
         delays_query = """
-        SELECT * FROM delays WHERE flightid = %s LIMIT 10;
+        SELECT * FROM delays WHERE flightid = :flight_id LIMIT 10;
         """
-        params = (flight_id,)  # Exact match for flight ID
+        params = {"flight_id": flight_id}  # Exact match for flight ID
         delays_df = run_query(delays_query, params=params)
         st.write(delays_df)
 
     elif selected_delays_query == "Delays by Departure Time":
         departure_time = st.time_input("Enter departure time:")
         delays_query = """
-        SELECT * FROM delays WHERE arrivaldelayinminutes > 0 AND EXTRACT(HOUR FROM departuretime) = %s LIMIT 10;
+        SELECT * FROM delays WHERE arrivaldelayinminutes > 0 AND EXTRACT(HOUR FROM departuretime) = :departure_hour LIMIT 10;
         """
-        params = (departure_time.hour,)  # Filter by hour of departure
+        params = {"departure_hour": departure_time.hour}  # Filter by hour of departure
         delays_df = run_query(delays_query, params=params)
         st.write(delays_df)
 
@@ -158,9 +161,9 @@ elif page == "Overall Satisfaction":
     if selected_satisfaction_query == "Satisfaction by Rating":
         satisfaction_rating = st.text_input("Enter Satisfaction rating (e.g., 'satisfied', 'neutral or dissatisfied'):")
         overall_satisfaction_query = """
-        SELECT * FROM overall_satisfaction WHERE satisfaction = %s LIMIT 10;
+        SELECT * FROM overall_satisfaction WHERE satisfaction = :satisfaction_rating LIMIT 10;
         """
-        params = (satisfaction_rating,)  # Exact match for satisfaction rating
+        params = {"satisfaction_rating": satisfaction_rating}  # Exact match for satisfaction rating
         overall_satisfaction_df = run_query(overall_satisfaction_query, params=params)
         st.write(overall_satisfaction_df)
 
@@ -168,9 +171,9 @@ elif page == "Overall Satisfaction":
         customer_type = st.text_input("Enter customer type (e.g., 'Loyal Customer'):")
         if customer_type:  # Ensure input is not empty
             overall_satisfaction_query = """
-            SELECT * FROM overall_satisfaction WHERE passengerid IN (SELECT passengerid FROM passengers WHERE customertype LIKE %s);
+            SELECT * FROM overall_satisfaction WHERE passengerid IN (SELECT passengerid FROM passengers WHERE customertype LIKE :customer_type);
             """
-            params = (f"%{customer_type}%",)  # Use wildcards for partial matching
+            params = {"customer_type": f"%{customer_type}%"}  # Use wildcards for partial matching
             overall_satisfaction_df = run_query(overall_satisfaction_query, params=params)
             st.write(overall_satisfaction_df)
 
